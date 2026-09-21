@@ -1,0 +1,7 @@
+# 機密與內部筆記，不進公開 repo
+_secrets/
+_gem建置包/
+WORKING_MEMORY.md
+.DS_Store
+# Agent 版程式各自是獨立公開 repo（見 README），不巢狀
+cases/*/02_AI設定/cc/

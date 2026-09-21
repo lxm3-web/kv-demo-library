@@ -1,0 +1,70 @@
+# 貼進 GPT Action 前：{{WEBAPP_URL}} 與 {{SECRET}} 換成 _secrets/01.env 的值
+openapi: 3.1.0
+info:
+  title: Procurement Incident API
+  description: Google Sheets procurement incident workflow API via Google Apps Script.
+  version: 1.0.0
+
+servers:
+  - url: {{WEBAPP_URL}}
+
+paths:
+  /exec:
+    get:
+      operationId: procurementAction
+      summary: Run procurement incident workflow.
+      description: Query inventory, impacted orders, backup vendors, policy rules, or handle procurement incidents.
+      parameters:
+        - name: secret
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Always use {{SECRET}}.
+        - name: action
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - getInventoryStatus
+              - getImpactedOrders
+              - getBackupVendors
+              - getPolicyRules
+              - createIncidentLog
+              - handleProcurementIncident
+              - resetDemoData
+          description: Action to execute.
+        - name: material_code
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Material code, for example AB123 or M024.
+        - name: issue
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Procurement issue.
+        - name: delay_days
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Supplier delay days.
+      responses:
+        "200":
+          description: Procurement action result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+                  error:
+                    type: string
+                additionalProperties: true

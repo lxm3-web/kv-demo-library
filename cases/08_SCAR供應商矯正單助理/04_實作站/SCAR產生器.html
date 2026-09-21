@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCAR 產生器</title>
+<style>
+  @page { size:A4 portrait; margin:12mm; }
+  :root{
+    --bg:#F7F5F1; --surface:#FFFFFF; --surface-2:#FBF9F5;
+    --ink:#23201C; --ink-muted:#6B6459; --ink-faint:#9A9284;
+    --accent:#A85C32; --accent-soft:#F0DCC9; --accent-ink:#7A4020;
+    --critical:#B3261E; --critical-soft:#FBE4E1; --critical-line:#E3B3AC;
+    --ok:#3F6B4A; --ok-soft:#E3ECE3;
+    --line:#E4DFD5; --mono-bg:#EFEBE3;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:#EEEAE2; color:var(--ink);
+       font-family: ui-sans-serif,"PingFang TC","Microsoft JhengHei",system-ui,sans-serif;}
+
+  /* ── 輸入面板 ── */
+  .panel{max-width:900px; margin:0 auto; padding:26px 20px 10px;}
+  .panel h1{font-size:19px; margin:0 0 4px;}
+  .panel p{font-size:13px; color:#6B6257; margin:0 0 14px; line-height:1.7;}
+  .panel code{background:var(--mono-bg); padding:1px 5px; border-radius:4px; font-size:12px;}
+  textarea{
+    width:100%; height:220px; padding:12px; border:1px solid #CFC7B9; border-radius:8px;
+    font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-size:12px; line-height:1.6;
+    background:#fff; resize:vertical;
+  }
+  .row{display:flex; gap:10px; align-items:center; margin-top:12px; flex-wrap:wrap;}
+  button{
+    border:0; border-radius:8px; cursor:pointer; font-family:inherit;
+    font-size:14px; font-weight:600; padding:10px 20px; transition:.15s;
+  }
+  #go{background:var(--accent); color:#fff;}
+  #go:hover{background:var(--accent-ink);}
+  #fill{background:var(--mono-bg); color:var(--ink-muted);}
+  #pr{background:var(--ok); color:#fff;}
+  #msg{font-size:13px; margin-top:10px; min-height:20px;}
+  #msg.err{color:var(--critical); white-space:pre-line;}
+  #msg.ok{color:var(--ok);}
+
+  /* ── 報告樣式（沿用 SCAR 報告設計）── */
+  #report{display:none;}
+  #report.on{display:block;}
+  .page{ max-width:880px; margin:0 auto; padding: 30px 24px 80px; }
+
+  .doc-head{ border:1px solid var(--line); border-radius:6px; background:var(--surface); box-shadow:0 1px 2px rgba(35,32,28,.06),0 8px 24px -12px rgba(35,32,28,.14); overflow:hidden; margin-bottom:28px; }
+  .doc-head-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:22px 24px 18px; border-bottom:1px solid var(--line); }
+  .eyebrow{ text-transform:uppercase; letter-spacing:.12em; font-size:11.5px; font-weight:700; color:var(--accent-ink); margin:0 0 6px; }
+  .doc-title{ font-size:22px; font-weight:800; letter-spacing:-.01em; margin:0; }
+  .doc-sub{ margin:4px 0 0; color:var(--ink-muted); font-size:14px; }
+  .status-pill{ flex:none; display:inline-flex; align-items:center; gap:7px; padding:7px 14px; border-radius:100px; font-weight:700; font-size:13px; background:var(--critical-soft); color:var(--critical); border:1px solid var(--critical-line); white-space:nowrap; }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--critical); }
+  .doc-meta{ display:grid; grid-template-columns: repeat(4, 1fr); }
+  .meta-cell{ padding:14px 24px; border-right:1px solid var(--line); }
+  .meta-cell:last-child{ border-right:none; }
+  .meta-label{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); margin-bottom:4px; }
+  .meta-value{ font-size:14.5px; font-weight:700; font-family: ui-monospace,monospace; }
+
+  section{ margin: 30px 0; }
+  .sec-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:14px; padding-top:14px; border-top:2px solid var(--accent); }
+  .sec-num{ font-family: ui-monospace,monospace; color:var(--accent-ink); font-weight:700; font-size:13px; }
+  .sec-title{ font-size:17px; font-weight:800; margin:0; }
+  .sec-note{ margin-left:auto; font-size:12.5px; color:var(--ink-faint); }
+
+  .ai-box{ background:var(--surface); border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:6px; padding:18px 20px; }
+  .ai-box-label{ display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--accent-ink); }
+  .ai-dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+  .ai-box p{ margin:0 0 10px; font-size:15px; }
+  .ai-box p:last-child{ margin-bottom:0; }
+
+  table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface); }
+  th{ text-align:left; padding:11px 14px; background:var(--surface-2); font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-muted); border-bottom:1px solid var(--line); white-space:nowrap; }
+  td{ padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  .num-cell{ font-family: ui-monospace,monospace; font-variant-numeric: tabular-nums; }
+  .tag{ display:inline-block; padding:3px 9px; border-radius:100px; font-size:12px; font-weight:700; }
+  .tag.crit{ background:var(--critical-soft); color:var(--critical); }
+  .tag.ok{ background:var(--ok-soft); color:var(--ok); }
+  .tag.neutral{ background:var(--mono-bg); color:var(--ink-muted); }
+
+  .narrative{ background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:20px 22px; }
+  .narrative p{ margin:0 0 14px; font-size:15px; }
+  .narrative p:last-child{ margin-bottom:0; }
+
+  .action-list{ display:flex; flex-direction:column; gap:10px; }
+  .action-item{ display:grid; grid-template-columns: 28px 1fr auto; gap:14px; align-items:start; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:14px 16px; }
+  .action-num{ width:26px; height:26px; border-radius:50%; background:var(--accent-soft); color:var(--accent-ink); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; font-family: ui-monospace,monospace; }
+  .action-text{ font-size:14.5px; }
+  .action-due{ font-size:12px; font-weight:700; color:var(--ink-muted); white-space:nowrap; padding-top:4px; }
+  .action-due.urgent{ color:var(--critical); }
+
+  footer.doc-footer{ margin-top:44px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-faint); }
+
+  @media print{
+    body{background:#fff;}
+    .panel{display:none;}
+    #report{max-width:none;}
+  }
+  @media (max-width:640px){
+    .doc-meta{ grid-template-columns: 1fr 1fr; }
+    .doc-head-top{ flex-direction:column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <h1>SCAR 產生器</h1>
+  <p>把 Gemini 分析進料異常記錄後產出的文字，整段複製貼進下面，按「產生 SCAR 報告」。<br>
+     格式：開頭幾行 <code>欄位：值</code> metadata，接著用 <code>##</code> 分節（分析摘要／供應商統計／異常明細／根本原因分析／矯正措施），表格用 <code>|</code> 分隔。<b>資料照抄，不經過二次改寫。</b></p>
+  <textarea id="src" placeholder="貼上 Gemini 輸出的 SCAR 分析文字…"></textarea>
+  <div class="row">
+    <button id="go">產生 SCAR 報告</button>
+    <button id="fill">填入範例（誠鎰電鍍）</button>
+    <button id="pr">列印 / 存 PDF</button>
+  </div>
+  <div id="msg"></div>
+</div>
+
+<div id="report">
+<div class="page">
+  <div class="doc-head">
+    <div class="doc-head-top">
+      <div>
+        <p class="eyebrow">Supplier Corrective Action Request</p>
+        <h1 class="doc-title" id="rt-title">供應商矯正預防措施要求單（SCAR）</h1>
+        <p class="doc-sub">依進料異常趨勢分析自動觸發，由 Gemini 彙整不良記錄後產生</p>
+      </div>
+      <span class="status-pill"><span class="status-dot"></span>OPEN．待供應商回覆</span>
+    </div>
+    <div class="doc-meta" id="rt-meta"></div>
+  </div>
+
+  <section id="sec-summary" style="display:none">
+    <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">分析摘要</h2><span class="sec-note">Gemini 自動產出</span></div>
+    <div class="ai-box"><div class="ai-box-label"><span class="ai-dot"></span>本月進料異常分析</div><div id="sec-summary-body"></div></div>
+  </section>
+
+  <section id="sec-rank" style="display:none">
+    <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">供應商不良統計</h2></div>
+    <div class="table-wrap"><table><thead><tr id="rank-head"></tr></thead><tbody id="rank-body"></tbody></table></div>
+  </section>
+
+  <section id="sec-detail" style="display:none">
+    <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title" id="detail-title">異常明細</h2></div>
+    <div class="table-wrap"><table><thead><tr id="detail-head"></tr></thead><tbody id="detail-body"></tbody></table></div>
+  </section>
+
+  <section id="sec-cause" style="display:none">
+    <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">根本原因分析</h2><span class="sec-note">Gemini 自動產出</span></div>
+    <div class="narrative" id="sec-cause-body"></div>
+  </section>
+
+  <section id="sec-action" style="display:none">
+    <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">要求矯正預防措施</h2></div>
+    <div class="action-list" id="sec-action-body"></div>
+  </section>
+
+  <footer class="doc-footer">本文件由 Gemini 依進料異常原始記錄自動分析產出，經 HTML 樣板組版而成。教學示範用假資料，供應商名稱、批號與數據皆為虛構。</footer>
+</div>
+</div>
+
+<script>
+const PIC_MAP = {
+  'PIC-00':'assets/PIC-00_良品參考.png',
+  'PIC-01':'assets/PIC-01_誠鎰電鍍_鍍層不足.png',
+  'PIC-04':'assets/PIC-04_大昇銅業_切削前量測.png',
+  'PIC-05':'assets/PIC-05_大昇銅業_切削後.png',
+  'PIC-06':'assets/PIC-06_大昇銅業_表面刮痕.png',
+  'PIC-07':'assets/PIC-07_錦城五金_外觀刮傷.png',
+  'PIC-08':'assets/PIC-08_錦城五金_沖壓毛邊.png',
+  'PIC-09':'assets/PIC-09_元展塑膠_縮水凹陷.png',
+  'PIC-10':'assets/PIC-10_元展塑膠_色差.png',
+  'PIC-11':'assets/PIC-11_元展塑膠_頂針痕跡.png',
+  'PIC-12':'assets/PIC-12_台鑫精密_表面粗糙.png'
+};
+function clean(s){ return (s||'').replace(/\*\*/g,'').replace(/`/g,'').trim(); }
+function esc(s){ return (s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function cellsOf(line){
+  if (line.includes('|')) return line.split('|').map(clean).filter((c,i,a)=> !(c==='' && (i===0||i===a.length-1)));
+  if (line.includes('\t')) return line.split('\t').map(clean);
+  if (/ {2,}/.test(line)) return line.split(/ {2,}/).map(clean);
+  return [clean(line)];
+}
+function isRule(line){ return /^[|\s:\-=]+$/.test(line) && line.replace(/[|\s]/g,'').length>0 && /^[-:=\s|]+$/.test(line); }
+
+// 依節標題（## 標題 或 純文字標題）切段
+function splitSections(text){
+  const lines = text.split('\n');
+  const meta = [];
+  const sections = {}; // name -> array of lines
+  let cur = null, curLines = [];
+  const HEADS = ['分析摘要','供應商統計','供應商不良統計','異常明細','根本原因分析','矯正措施','矯正預防措施','要求矯正預防措施'];
+
+  function flush(){ if (cur) sections[cur] = curLines; }
+
+  for (let raw of lines){
+    const line = raw.trim();
+    if (!line){ if(cur) curLines.push(''); continue; }
+    const headMatch = line.replace(/^#+\s*/,'');
+    const hit = HEADS.find(h => headMatch === h || headMatch.startsWith(h));
+    if (/^#+\s/.test(line) || hit){
+      flush();
+      cur = hit || headMatch;
+      curLines = [];
+      continue;
+    }
+    if (cur === null){ meta.push(line); } else { curLines.push(line); }
+  }
+  flush();
+  return { meta, sections };
+}
+
+function parseMeta(metaLines){
+  const m = {};
+  for (const l of metaLines){
+    const i = l.indexOf('：') >= 0 ? l.indexOf('：') : l.indexOf(':');
+    if (i > 0) m[clean(l.slice(0,i))] = clean(l.slice(i+1));
+  }
+  return m;
+}
+
+function parseTable(lines){
+  const rows = lines.filter(l => l.trim() && !isRule(l)).map(cellsOf);
+  if (!rows.length) return null;
+  const head = rows[0];
+  const body = rows.slice(1).filter(r => r.length >= Math.min(2, head.length));
+  return { head, body };
+}
+
+function findSection(sections, keys){
+  for (const k of keys){ if (sections[k]) return sections[k]; }
+  for (const key in sections){ if (keys.some(k => key.includes(k))) return sections[key]; }
+  return null;
+}
+
+function paragraphsHtml(lines){
+  const text = lines.join('\n').trim();
+  if (!text) return '';
+  return text.split(/\n{1,2}/).map(p => p.trim()).filter(Boolean)
+    .map(p => '<p>' + esc(p).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>') + '</p>').join('');
+}
+
+function actionItemsHtml(lines){
+  const text = lines.join('\n');
+  const items = text.split('\n').map(l => l.trim()).filter(l => /^\d+[.、)]/.test(l));
+  return items.map(l => {
+    const num = l.match(/^(\d+)/)[1];
+    let body = l.replace(/^\d+[.、)]\s*/, '');
+    let due = '';
+    const m = body.match(/[（(]([^（()]+?)[）)]\s*$/);
+    if (m){ due = m[1]; body = body.slice(0, m.index).trim(); }
+    const urgent = /即日|3\s*個?工作天|三個?工作天/.test(due);
+    return '<div class="action-item"><span class="action-num">'+num+'</span>' +
+           '<span class="action-text">'+esc(clean(body))+'</span>' +
+           '<span class="action-due'+(urgent?' urgent':'')+'">'+esc(due)+'</span></div>';
+  }).join('');
+}
+
+function tagFor(cellText){
+  const t = (cellText||'');
+  if (/SCAR|退貨|特採/.test(t)) return '<span class="tag crit">'+esc(t)+'</span>';
+  if (/合格|通過|OK/i.test(t)) return '<span class="tag ok">'+esc(t)+'</span>';
+  return t ? '<span class="tag neutral">'+esc(t)+'</span>' : '';
+}
+
+function render(){
+  const msg = document.getElementById('msg');
+  msg.className=''; msg.textContent='';
+  const raw = document.getElementById('src').value;
+  if (!raw.trim()){ msg.className='err'; msg.textContent='⚠ 請先貼上 Gemini 輸出的文字。'; return; }
+
+  let meta, sections;
+  try{
+    const parsed = splitSections(raw);
+    meta = parseMeta(parsed.meta);
+    sections = parsed.sections;
+  }catch(e){ msg.className='err'; msg.textContent='⚠ 解析失敗：'+e.message; return; }
+
+  // metadata
+  document.getElementById('rt-title').textContent = meta['標題'] || '供應商矯正預防措施要求單（SCAR）';
+  const metaOrder = [['SCAR編號','SCAR 編號'],['發行日期','發行日期'],['供應商','供應商'],['製程','相關製程']];
+  const metaHtml = metaOrder.map(([k,label]) => {
+    const v = meta[k] || meta[label] || '—';
+    return '<div class="meta-cell"><div class="meta-label">'+esc(label)+'</div><div class="meta-value">'+esc(v)+'</div></div>';
+  }).join('');
+  document.getElementById('rt-meta').innerHTML = metaHtml;
+
+  let sectionsFound = 0;
+
+  // 01 分析摘要
+  const summary = findSection(sections, ['分析摘要']);
+  if (summary){
+    document.getElementById('sec-summary-body').innerHTML = paragraphsHtml(summary);
+    document.getElementById('sec-summary').style.display = '';
+    sectionsFound++;
+  }
+
+  // 02 供應商統計
+  const rankLines = findSection(sections, ['供應商統計','供應商不良統計']);
+  if (rankLines){
+    const t = parseTable(rankLines);
+    if (t){
+      document.getElementById('rank-head').innerHTML = t.head.map(h=>'<th>'+esc(h)+'</th>').join('');
+      document.getElementById('rank-body').innerHTML = t.body.map(r =>
+        '<tr>'+r.map((c,i)=> i===r.length-1 ? '<td>'+tagFor(c)+'</td>' : '<td class="'+(/^[\d.]+%?$/.test(c)?'num-cell':'')+'">'+esc(c)+'</td>').join('')+'</tr>'
+      ).join('');
+      document.getElementById('sec-rank').style.display=''; sectionsFound++;
+    }
+  }
+
+  // 03 異常明細
+  const detailLines = findSection(sections, ['異常明細']);
+  if (detailLines){
+    const t = parseTable(detailLines);
+    if (t){
+      const judgeCol = t.head.findIndex(h => /判定/.test(h));
+      const photoCol = t.head.findIndex(h => /照片/.test(h));
+      document.getElementById('detail-head').innerHTML = t.head.map(h=>'<th>'+esc(h)+'</th>').join('');
+      document.getElementById('detail-body').innerHTML = t.body.map(r =>
+        '<tr>'+r.map((c,i) => {
+          if (i === photoCol){
+            // 認兩種：Gem 正常輸出的 Drive 網址，或萬一輸出簡化成 PIC 編號時 fallback 本機圖
+            const tokens = (c||'').split(',').map(s=>clean(s)).filter(Boolean);
+            const imgs = tokens.map(t => /^https?:\/\//.test(t) ? t : PIC_MAP[t]).filter(Boolean);
+            if (!imgs.length) return '<td class="num-cell">'+esc(c)+'</td>';
+            return '<td>'+imgs.map(u=>'<img src="'+esc(u)+'" alt="佐證照片" loading="lazy" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);margin-right:4px" onerror="this.onerror=null;this.style.display=\'none\';this.insertAdjacentHTML(\'afterend\',\'<span class=&quot;tag neutral&quot;>圖片載入失敗</span>\')">').join('')+'</td>';
+          }
+          if (i === judgeCol) return '<td>'+tagFor(c)+'</td>';
+          return /^[\d\/\.\-A-Za-z]+$/.test(c) ? '<td class="num-cell">'+esc(c)+'</td>' : '<td>'+esc(c)+'</td>';
+        }).join('')+'</tr>'
+      ).join('');
+      document.getElementById('sec-detail').style.display=''; sectionsFound++;
+    }
+  }
+
+  // 04 根本原因分析
+  const cause = findSection(sections, ['根本原因分析']);
+  if (cause){
+    document.getElementById('sec-cause-body').innerHTML = paragraphsHtml(cause);
+    document.getElementById('sec-cause').style.display=''; sectionsFound++;
+  }
+
+  // 05 矯正措施
+  const action = findSection(sections, ['要求矯正預防措施','矯正預防措施','矯正措施']);
+  if (action){
+    const html = actionItemsHtml(action);
+    if (html){
+      document.getElementById('sec-action-body').innerHTML = html;
+      document.getElementById('sec-action').style.display=''; sectionsFound++;
+    }
+  }
+
+  if (!sectionsFound){
+    msg.className='err';
+    msg.textContent='⚠ 沒有解析到任何段落。請確認文字裡有「## 分析摘要」「## 異常明細」等分節標題，表格用 | 分隔。';
+    document.getElementById('report').classList.remove('on');
+    return;
+  }
+
+  document.getElementById('report').classList.add('on');
+  msg.className='ok';
+  msg.textContent='✓ 已產生報告，解析到 '+sectionsFound+' 個段落。';
+  document.getElementById('report').scrollIntoView({behavior:'smooth'});
+}
+
+const EXAMPLE = `標題：供應商矯正預防措施要求單（SCAR）
+SCAR編號：SCAR-20260805-001
+發行日期：2026-08-05
+供應商：誠鎰電鍍有限公司
+製程：端子鍍層加工（鍍錫）
+
+## 分析摘要
+誠鎰電鍍本月共 5 筆進料異常，佔全公司本月異常總數的 25%，其中 3 筆屬同一缺陷（鍍層厚度不足）連續三週發生。
+第 2 週（7/29）已依程序正式通知供應商並要求提出改善對策，惟第 3 週（8/5）同一缺陷仍再度發生，判定既有矯正措施未落實根本原因，依品質管理程序**觸發本次 SCAR**。
+
+## 異常明細
+週次 | 日期 | 批號 | 不良現象 | 檢驗數據 | 判定 | 照片網址
+第1週 | 7/22 | P-0721-A | 鍍層厚度不足 | 規格3-5μm／實測1.8μm | 特採 | https://drive.google.com/thumbnail?id=1CTs-599fmrbz4BCXykWyohNJnDvN5rat&sz=w1000
+第1週 | 7/24 | P-0724-B | 局部漏鍍，基材裸露 | 目視判定 | 退貨重工 | https://drive.google.com/thumbnail?id=1CTs-599fmrbz4BCXykWyohNJnDvN5rat&sz=w1000
+第2週 | 7/29 | P-0729-A | 鍍層厚度不足（同批型號再現） | 規格3-5μm／實測1.9μm | 特採＋首次正式通知 | https://drive.google.com/thumbnail?id=1CTs-599fmrbz4BCXykWyohNJnDvN5rat&sz=w1000
+第2週 | 7/31 | P-0731-C | 鍍層附著力不良 | 膠帶測試脫落 | 全數退貨 | https://drive.google.com/thumbnail?id=1CTs-599fmrbz4BCXykWyohNJnDvN5rat&sz=w1000
+第3週 | 8/5 | P-0805-A | 鍍層厚度第三次不足 | 規格3-5μm／實測2.0μm | 觸發SCAR | https://drive.google.com/thumbnail?id=1CTs-599fmrbz4BCXykWyohNJnDvN5rat&sz=w1000
+
+## 根本原因分析
+三次厚度不足事件實測值集中在 1.8–2.0μm，與規格下限 3.0μm 有穩定落差（約 1.0–1.2μm），數值集中度高，較不像製程隨機波動，可能為**鍍槽電流密度設定或鍍液濃度控管**的系統性問題，而非單一批次偶發。
+第 2 週正式通知後，第 3 週數值（2.0μm）雖略高於前兩週，但仍未達標，顯示供應商可能僅做了局部調整，**未針對鍍液成分或設備參數進行根本排查**。
+
+## 要求矯正預防措施
+1. 提出鍍液濃度與電流密度歷史記錄，佐證是否落在規格範圍內（3個工作天內）
+2. 鍍層厚度全批次抽測，抽樣率提高至100%，直到連續5批合格為止（即日起）
+3. 提交根本原因分析報告，8D或等效格式（7個工作天內）
+4. 提出矯正措施與預防再發對策，並附驗證時程（10個工作天內）
+5. 改善驗證合格前，新批次一律先行隔離待驗（即日起）`;
+
+document.getElementById('fill').onclick = () => { document.getElementById('src').value = EXAMPLE; };
+document.getElementById('go').onclick = render;
+document.getElementById('pr').onclick = () => window.print();
+</script>
+</body>
+</html>
