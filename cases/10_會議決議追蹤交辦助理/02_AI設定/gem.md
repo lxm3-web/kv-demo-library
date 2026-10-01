@@ -1,6 +1,6 @@
 # Gemini Gem（筆記本）設定 — 會議秘書助理（AI 版）
 
-> open@ Gemini：「＋ 新增筆記本」→ 名稱 `會議秘書助理` → 指令貼 `Gem指令_貼上用.txt` → 新增來源上傳 `01_輸入假資料/部門與窗口.md`（讓它知道誰是誰、推測規則）→ 分享。
+> open@ Gemini：「＋ 新增筆記本」→ 名稱 `KV Demo 10｜會議秘書助理` → 指令貼 `Gem指令_貼上用.txt` → 新增來源上傳 `01_輸入假資料/部門與窗口.md`（讓它知道誰是誰、推測規則）→ 分享。
 > 原案（Notion Case 30，Eric）：GAS 產 prompt → 貼 Claude 取 JSON → 手動填 Sheet → LINE Notify 提醒（LINE Notify 已停服）。本 Gem 把「貼記錄→出清單」那一步做完；填表與通知仍是人。
 
 ## demo 流程
